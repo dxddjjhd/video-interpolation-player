@@ -88,6 +88,13 @@ class BoundedQueue(Generic[T]):
             self._q.clear()
             self._cv.notify_all()
 
+    def reopen(self) -> None:
+        """重新打开已关闭的队列（循环播放用）：清空并取消关闭标志。"""
+        with self._cv:
+            self._closed = False
+            self._q.clear()
+            self._cv.notify_all()
+
     def close(self) -> None:
         """关闭队列：清空并唤醒所有等待者。"""
         with self._cv:
