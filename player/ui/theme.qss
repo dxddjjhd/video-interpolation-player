@@ -1,0 +1,136 @@
+/* 现代化深色主题 */
+QMainWindow, QDialog, QProgressDialog {
+    background-color: #1b1d26;
+}
+QWidget {
+    color: #e6e8ee;
+    font-size: 13px;
+}
+QMenuBar {
+    background-color: #1b1d26;
+    padding: 2px;
+}
+QMenuBar::item {
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+QMenuBar::item:selected {
+    background-color: #2d3142;
+}
+QMenu {
+    background-color: #242734;
+    border: 1px solid #363a4a;
+    border-radius: 8px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 6px 24px 6px 12px;
+    border-radius: 6px;
+}
+QMenu::item:selected {
+    background-color: #3d4a6e;
+}
+QMenu::separator {
+    height: 1px;
+    background: #363a4a;
+    margin: 4px 8px;
+}
+
+/* 控制栏 */
+QPushButton {
+    background-color: #2d3142;
+    border: 1px solid #3d4257;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background-color: #3a3f55;
+}
+QPushButton:pressed {
+    background-color: #262a3a;
+}
+QPushButton:checked {
+    background-color: #4a5f8a;
+    border-color: #5b7cb8;
+}
+QPushButton:disabled {
+    color: #6a6f85;
+    background-color: #242734;
+}
+
+/* 下拉框 */
+QComboBox {
+    background-color: #2d3142;
+    border: 1px solid #3d4257;
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 72px;
+}
+QComboBox:hover {
+    border-color: #5b7cb8;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+}
+QComboBox QAbstractItemView {
+    background-color: #242734;
+    border: 1px solid #363a4a;
+    border-radius: 8px;
+    selection-background-color: #3d4a6e;
+    outline: none;
+}
+
+/* 滑块（进度条 + 音量） */
+QSlider::groove:horizontal {
+    height: 6px;
+    background: #343850;
+    border-radius: 3px;
+}
+QSlider::sub-page:horizontal {
+    background: #5b7cb8;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    width: 16px;
+    height: 16px;
+    margin: -5px 0;
+    border-radius: 8px;
+    background: #9ab6e8;
+}
+QSlider::handle:horizontal:hover {
+    background: #c3d4f2;
+}
+
+/* 状态栏 */
+QStatusBar {
+    background-color: #1b1d26;
+    border-top: 1px solid #2d3142;
+    color: #9aa0b5;
+}
+QStatusBar QLabel {
+    color: #9aa0b5;
+}
+
+/* 视频区域容器 */
+#videoArea {
+    background-color: #000000;
+    border: 1px solid #2d3142;
+    border-radius: 10px;
+}
+
+/* 时间标签 */
+#timeLabel {
+    color: #9aa0b5;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 工具提示 */
+QToolTip {
+    background-color: #242734;
+    color: #e6e8ee;
+    border: 1px solid #363a4a;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
