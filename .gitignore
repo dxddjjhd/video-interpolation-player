@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# RIFE 模型（自动下载）
+player/interpolate/models/*.7z
+player/interpolate/models/*.onnx
+player/superres/models/*.onnx
+player/superres/models/*.7z
+
+# 测试产物
+tests/data/*.mp4
+tests/data/*.onnx
+
+# 本地验证报告
+RIFE_验证报告.txt

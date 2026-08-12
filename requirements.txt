@@ -1,0 +1,8 @@
+# 视频实时插帧播放器依赖
+PySide6>=6.6
+# PyAV 的 PyPI 包名为 av
+av>=12.0
+numpy>=1.26
+opencv-python>=4.9
+onnxruntime-gpu>=1.17
+requests>=2.31
