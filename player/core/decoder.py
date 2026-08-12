@@ -37,10 +37,14 @@ class AudioChunk:
 
 
 class VideoDecoder:
-    """打开一个媒体文件，按时间序输出视频帧与重采样音频块。"""
+    """打开一个媒体文件，按时间序输出视频帧与重采样音频块。
 
-    def __init__(self, path: str) -> None:
+    speed: 播放速度（音频重采样到 AUDIO_RATE×speed，实现变速播放）
+    """
+
+    def __init__(self, path: str, speed: float = 1.0) -> None:
         self.path = path
+        self.speed = speed
         self.container = av.open(path)          # 视频专用
         self.vstream = next(
             (s for s in self.container.streams if s.type == "video"), None)
@@ -67,10 +71,13 @@ class VideoDecoder:
         rate = self.vstream.average_rate or self.vstream.base_rate
         self.src_fps = float(rate) if rate else 25.0
 
+        # 变速：输出采样率与分块大小按速度缩放（分块保持 ~85ms 时长）
+        self.audio_rate = int(AUDIO_RATE * speed)
+        self.chunk_samples = max(1024, int(AUDIO_CHUNK_SAMPLES * speed))
         self._resampler = None
         if self.astream is not None:
             self._resampler = av.AudioResampler(
-                format="s16", layout="stereo", rate=AUDIO_RATE)
+                format="s16", layout="stereo", rate=self.audio_rate)
         self._audio_acc = bytearray()
         self._audio_acc_pts: float | None = None
 
@@ -96,7 +103,7 @@ class VideoDecoder:
             return None
         while True:
             # 先消化累积缓冲区
-            if len(self._audio_acc) >= AUDIO_CHUNK_SAMPLES * 2 * AUDIO_CHANNELS:
+            if len(self._audio_acc) >= self.chunk_samples * 2 * AUDIO_CHANNELS:
                 return self._pop_chunk()
             try:
                 frame = next(self.acontainer.decode(self.astream))
@@ -114,7 +121,7 @@ class VideoDecoder:
                 self._audio_acc += arr.astype(np.int16).tobytes()
 
     def _pop_chunk(self) -> AudioChunk:
-        n = AUDIO_CHUNK_SAMPLES * 2 * AUDIO_CHANNELS
+        n = self.chunk_samples * 2 * AUDIO_CHANNELS
         data = bytes(self._audio_acc[:n])
         del self._audio_acc[:n]
         chunk = AudioChunk(pts=self._audio_acc_pts or 0.0, data=data)
