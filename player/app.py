@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QSurfaceFormat
@@ -27,6 +28,11 @@ def main(argv: list[str] | None = None) -> int:
 
     app = QApplication(argv if argv is not None else sys.argv)
     app.setStyle("Fusion")
+
+    # 现代化深色主题
+    theme_path = Path(__file__).resolve().parent / "ui" / "theme.qss"
+    if theme_path.exists():
+        app.setStyleSheet(theme_path.read_text(encoding="utf-8"))
 
     from .ui.main_window import MainWindow
     win = MainWindow(hw)
