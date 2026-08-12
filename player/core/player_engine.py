@@ -124,6 +124,10 @@ class PlayerEngine(QObject):
         self._sr_kind = "off"
         self._sr_model_ready = False
 
+        # 播放速度 / 循环 / 音量
+        self._speed = 1.0
+        self._loop = False
+
         self._factor = 2
         self._interp_scale = 1.0          # 插帧分辨率缩放 (0,1]，仅 RIFE 生效
         self._note = ""                   # 引擎切换/降级提示（显示在状态栏）
@@ -150,7 +154,7 @@ class PlayerEngine(QObject):
     def open(self, path: str) -> None:
         self.close()
         try:
-            dec = VideoDecoder(path)
+            dec = VideoDecoder(path, speed=self._speed)
         except Exception as e:  # noqa: BLE001
             self.error.emit(f"无法打开文件: {e}")
             return
@@ -160,7 +164,7 @@ class PlayerEngine(QObject):
         self._video_hw = (dec.height, dec.width)   # 供基准测试用（不碰解码器）
         self.duration_ready.emit(dec.duration)
         # 音频设备必须在主线程创建（Qt 音频后端跨线程创建会崩溃）
-        self._audio.prepare()
+        self._audio.prepare(speed=self._speed)
         self._video_q = BoundedQueue(2 * self._factor + 2)
         self._interp = create_interpolator(self._engine_kind, self._hw,
                                            model_ready=self._model_ready)
@@ -204,6 +208,28 @@ class PlayerEngine(QObject):
         with self._lock:
             self._seek_target[0] = seconds
         log.info("seek → %.2fs", seconds)
+
+    def set_speed(self, rate: float) -> None:
+        """设置播放速度（0.25~4.0）。变速通过音频重采样实现，
+        生效需要重建解码管线（保留引擎/超分等设置，回到原位置继续）。"""
+        rate = max(0.25, min(rate, 4.0))
+        if abs(rate - self._speed) < 1e-6:
+            return
+        self._speed = rate
+        if self._decoder is not None:
+            pos = self.position()
+            path = self._decoder.path
+            self.open(path)
+            if pos > 0.5:
+                self.seek(pos)
+
+    def set_loop(self, loop: bool) -> None:
+        """设置循环播放：结束后回到开头继续。"""
+        self._loop = loop
+
+    def set_volume(self, volume: float) -> None:
+        """设置音量 0~1（代理到音频设备）。"""
+        self._audio.set_volume(max(0.0, min(volume, 1.0)))
 
     def set_factor(self, factor: int) -> None:
         if factor in (2, 4):
@@ -369,6 +395,16 @@ class PlayerEngine(QObject):
                         break
                 else:
                     # 视频 EOF
+                    if self._loop and self.duration > 0:
+                        # 循环模式：seek 回开头，复用容器与队列继续解码
+                        dec.seek(0.0)
+                        self._video_q.reopen()
+                        self._audio.flush()
+                        self._presented_any = False
+                        self._use_wall = False
+                        self._finished = False
+                        log.info("循环播放：回到开头")
+                        continue
                     self._video_q.close()
                     break
         except Exception as e:  # noqa: BLE001
