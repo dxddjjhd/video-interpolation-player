@@ -35,13 +35,20 @@ class AudioPlayer(QObject):
         self._last_clock = 0.0
         self._last_clock_mono = 0.0
         self._ok = True
+        self._rate = AUDIO_RATE                # 当前输出采样率（变速时 = 48k×speed）
+        self._speed = 1.0
+        self._volume = 1.0
+        self._stopping_sink: QAudioSink | None = None
 
     # ------------------------------------------------------------------
-    def prepare(self) -> None:
+    def prepare(self, speed: float = 1.0) -> None:
         """在主线程创建音频设备（Qt 音频后端非主线程创建会崩溃）。
 
+        speed: 播放速度，输出采样率 = AUDIO_RATE×speed（变速播放）。
         由播放引擎在 open()（主线程）时调用；之后 write() 只做数据推送。
         """
+        self._speed = max(0.25, min(speed, 4.0))
+        self._rate = int(AUDIO_RATE * self._speed)
         self._ensure_sink()
 
     def _ensure_sink(self) -> QAudioSink | None:
@@ -61,15 +68,15 @@ class AudioPlayer(QObject):
                 self._ok = False
                 return None
             fmt = QAudioFormat()
-            fmt.setSampleRate(AUDIO_RATE)
+            fmt.setSampleRate(self._rate)
             fmt.setChannelCount(AUDIO_CHANNELS)
             fmt.setSampleFormat(QAudioFormat.Int16)
             if not dev.isFormatSupported(fmt):
-                log.warning("音频格式不受支持，将无声播放")
+                log.warning("音频格式不受支持(%dHz)，将无声播放", self._rate)
                 self._ok = False
                 return None
             self._sink = QAudioSink(dev, fmt)
-            self._sink.setBufferSize(AUDIO_RATE * 2 * AUDIO_CHANNELS * 2)
+            self._sink.setBufferSize(self._rate * 2 * AUDIO_CHANNELS * 2)
             self._sink_io = self._sink.start()
             return self._sink
         except Exception as e:  # noqa: BLE001
@@ -90,7 +97,7 @@ class AudioPlayer(QObject):
                 self._started_mono = time.monotonic()
             if self._sink is None or self._sink_io is None:
                 self._total_written_us += int(
-                    len(data) / (2 * AUDIO_CHANNELS) * 1e6 / AUDIO_RATE)
+                    len(data) / (2 * AUDIO_CHANNELS) * 1e6 / self._rate)
                 return
             if self._paused:
                 return
@@ -101,15 +108,20 @@ class AudioPlayer(QObject):
 
     # ------------------------------------------------------------------
     def clock(self) -> float | None:
-        """当前音频播放位置（秒）；无声/未开始时返回 None。"""
+        """当前音频播放位置（媒体时间，秒）；无声/未开始时返回 None。
+
+        变速时输出采样率 = 48k×speed，播放 1 秒输出 = 媒体 speed 秒，
+        因此媒体时间 = 输出时长 × speed。
+        """
         with self._lock:
             if self._first_pts is None:
                 return None
             if self._sink is not None and self._ok:
                 us = self._sink.processedUSecs()
-                return self._first_pts + us / 1e6
+                return self._first_pts + us / 1e6 * self._speed
             # 无声回退：按单调时钟推进
-            return self._first_pts + (time.monotonic() - self._started_mono)
+            return self._first_pts + (time.monotonic() - self._started_mono) \
+                * self._speed
 
     def advancing(self) -> bool:
         """判断时钟是否在推进（检测音频饥饿/卡死）。"""
@@ -186,6 +198,16 @@ class AudioPlayer(QObject):
         else:
             QMetaObject.invokeMethod(self, method,
                                      Qt.BlockingQueuedConnection)
+
+    def set_volume(self, volume: float) -> None:
+        """设置音量 0~1（UI 主线程调用，sink 亦在主线程）。"""
+        with self._lock:
+            self._volume = volume
+        if self._sink is not None:
+            try:
+                self._sink.setVolume(volume)
+            except Exception:  # noqa: BLE001
+                pass
 
     def pause(self) -> None:
         with self._lock:
